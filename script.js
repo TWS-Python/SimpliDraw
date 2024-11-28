@@ -1,5 +1,6 @@
 const canvas = document.getElementById("drawingCanvas");
 const ctx = canvas.getContext("2d");
+
 const brushColorInput = document.getElementById("brushColor");
 const brushSizeInput = document.getElementById("brushSize");
 const bgColorInput = document.getElementById("bgColor");
@@ -14,24 +15,30 @@ canvas.height = window.innerHeight - 50;
 let isDrawing = false;
 let startX, startY;
 let currentTool = "brush";
+let drawingHistory = [];
+let redoStack = [];
 
-const setCanvasBackground = (color) => {
+// Set initial background color
+let backgroundColor = "#ffffff";
+setCanvasBackground(backgroundColor);
+
+function setCanvasBackground(color) {
+  backgroundColor = color;
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-};
+}
 
-// Initialize with white background
-setCanvasBackground("#ffffff");
-
-// Event Listeners
 canvas.addEventListener("mousedown", (e) => {
   isDrawing = true;
   startX = e.offsetX;
   startY = e.offsetY;
+
+  // Save state before drawing
+  saveState();
 });
 
 canvas.addEventListener("mouseup", (e) => {
-  if (currentTool === "line" || currentTool === "rectangle" || currentTool === "circle") {
+  if (["line", "rectangle", "circle"].includes(currentTool)) {
     drawShape(e.offsetX, e.offsetY);
   }
   isDrawing = false;
@@ -52,11 +59,14 @@ canvas.addEventListener("mousemove", (e) => {
 });
 
 clearCanvasButton.addEventListener("click", () => {
-  setCanvasBackground("#ffffff");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  setCanvasBackground(backgroundColor);
+  saveState();
 });
 
 setBgColorButton.addEventListener("click", () => {
   setCanvasBackground(bgColorInput.value);
+  saveState();
 });
 
 downloadCanvasButton.addEventListener("click", () => {
@@ -70,7 +80,6 @@ toolSelector.addEventListener("change", (e) => {
   currentTool = e.target.value;
 });
 
-// Shape Drawing Function
 function drawShape(endX, endY) {
   ctx.lineWidth = brushSizeInput.value;
   ctx.strokeStyle = brushColorInput.value;
@@ -100,3 +109,56 @@ function drawShape(endX, endY) {
       break;
   }
 }
+
+// Undo/Redo Functionality
+function saveState() {
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  drawingHistory.push(imageData);
+  redoStack = [];
+}
+
+function undo() {
+  if (drawingHistory.length > 0) {
+    redoStack.push(drawingHistory.pop());
+    restoreState();
+  }
+}
+
+function redo() {
+  if (redoStack.length > 0) {
+    drawingHistory.push(redoStack.pop());
+    restoreState();
+  }
+}
+
+function restoreState() {
+  ctx.putImageData(drawingHistory[drawingHistory.length - 1], 0, 0);
+}
+
+// Keyboard Shortcuts
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.key === "z") undo();
+  if (e.ctrlKey && e.key === "y") redo();
+  if (e.ctrlKey && e.key === "s") {
+    e.preventDefault();
+    downloadCanvasButton.click();
+  }
+  if (e.ctrlKey && e.shiftKey && e.key === "c") {
+    clearCanvasButton.click();
+  }
+});
+
+// Resize Canvas
+window.addEventListener("resize", () => {
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = canvas.width;
+  tempCanvas.height = canvas.height;
+  const tempCtx = tempCanvas.getContext("2d");
+  tempCtx.drawImage(canvas, 0, 0);
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight - 50;
+
+  setCanvasBackground(backgroundColor);
+  ctx.drawImage(tempCanvas, 0, 0);
+});
