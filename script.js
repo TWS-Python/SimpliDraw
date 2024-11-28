@@ -1,97 +1,44 @@
 const canvas = document.getElementById("drawingCanvas");
 const ctx = canvas.getContext("2d");
 
-const brushColor = document.getElementById("brushColor");
-const brushSize = document.getElementById("brushSize");
+const brushColorInput = document.getElementById("brushColor");
+const brushSizeInput = document.getElementById("brushSize");
+const bgColorInput = document.getElementById("bgColor");
+const setBgColorButton = document.getElementById("setBgColor");
 const toolSelector = document.getElementById("tool");
 const clearCanvasButton = document.getElementById("clearCanvas");
 const downloadCanvasButton = document.getElementById("downloadCanvas");
-const addLayerButton = document.getElementById("addLayer");
-const deleteLayerButton = document.getElementById("deleteLayer");
-const layerSelector = document.getElementById("layerSelector");
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight - 50;
 
 let isDrawing = false;
-let startX = 0, startY = 0;
+let startX, startY;
 let currentTool = "brush";
-let layers = [];
-let activeLayerIndex = 0;
+let drawingHistory = [];
+let redoStack = [];
 
-initialize();
+// Set initial background color
+let backgroundColor = "#ffffff";
+setCanvasBackground(backgroundColor);
 
-// ** Initialize canvas with layers **
-function initialize() {
-  addLayer();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
+function setCanvasBackground(color) {
+  backgroundColor = color;
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-// ** Add Layer **
-function addLayer() {
-  const newLayer = document.createElement("canvas");
-  newLayer.width = canvas.width;
-  newLayer.height = canvas.height;
-  layers.push(newLayer.getContext("2d"));
-
-  const layerOption = document.createElement("option");
-  layerOption.value = layers.length - 1;
-  layerOption.textContent = `Layer ${layers.length}`;
-  layerSelector.appendChild(layerOption);
-
-  layerSelector.value = layers.length - 1;
-  activeLayerIndex = layers.length - 1;
-  switchLayer();
-}
-
-// ** Switch Active Layer **
-function switchLayer() {
-  const selectedLayerIndex = parseInt(layerSelector.value);
-  activeLayerIndex = selectedLayerIndex;
-  updateCanvas();
-}
-
-// ** Delete Layer **
-function deleteLayer() {
-  if (layers.length === 1) {
-    alert("At least one layer must exist.");
-    return;
-  }
-  layers.splice(activeLayerIndex, 1);
-  layerSelector.removeChild(layerSelector.lastChild);
-  activeLayerIndex = Math.max(0, activeLayerIndex - 1);
-  layerSelector.value = activeLayerIndex;
-  updateCanvas();
-}
-
-// ** Clear Canvas **
-clearCanvasButton.addEventListener("click", () => {
-  layers.forEach(layer => layer.clearRect(0, 0, canvas.width, canvas.height));
-  updateCanvas();
-});
-
-// ** Download Canvas **
-downloadCanvasButton.addEventListener("click", () => {
-  const link = document.createElement("a");
-  link.download = "drawing.png";
-  link.href = canvas.toDataURL();
-  link.click();
-});
-
-// ** Canvas Drawing Events **
 canvas.addEventListener("mousedown", (e) => {
+  isDrawing = true;
   startX = e.offsetX;
   startY = e.offsetY;
-  isDrawing = true;
 
-  if (currentTool === "text") {
-    addText(startX, startY);
-  }
+  // Save state before drawing
+  saveState();
 });
 
 canvas.addEventListener("mouseup", (e) => {
-  if (isDrawing && currentTool !== "brush") {
+  if (["line", "rectangle", "circle"].includes(currentTool)) {
     drawShape(e.offsetX, e.offsetY);
   }
   isDrawing = false;
@@ -101,70 +48,117 @@ canvas.addEventListener("mouseup", (e) => {
 canvas.addEventListener("mousemove", (e) => {
   if (!isDrawing || currentTool !== "brush") return;
 
-  const layer = layers[activeLayerIndex];
-  layer.lineWidth = brushSize.value;
-  layer.strokeStyle = brushColor.value;
+  ctx.lineWidth = brushSizeInput.value;
+  ctx.strokeStyle = brushColorInput.value;
+  ctx.lineCap = "round";
 
-  layer.lineTo(e.offsetX, e.offsetY);
-  layer.stroke();
-  layer.beginPath();
-  layer.moveTo(e.offsetX, e.offsetY);
-
-  updateCanvas();
+  ctx.lineTo(e.offsetX, e.offsetY);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(e.offsetX, e.offsetY);
 });
 
-// ** Drawing Shapes **
-function drawShape(x, y) {
-  const layer = layers[activeLayerIndex];
-  layer.strokeStyle = brushColor.value;
-  layer.lineWidth = brushSize.value;
-
-  if (currentTool === "line") {
-    layer.beginPath();
-    layer.moveTo(startX, startY);
-    layer.lineTo(x, y);
-    layer.stroke();
-  } else if (currentTool === "rectangle") {
-    layer.strokeRect(startX, startY, x - startX, y - startY);
-  } else if (currentTool === "circle") {
-    const radius = Math.sqrt(Math.pow(x - startX, 2) + Math.pow(y - startY, 2));
-    layer.beginPath();
-    layer.arc(startX, startY, radius, 0, Math.PI * 2);
-    layer.stroke();
-  }
-  updateCanvas();
-}
-
-// ** Add Text **
-function addText(x, y) {
-  const text = prompt("Enter text:");
-  if (text) {
-    const layer = layers[activeLayerIndex];
-    layer.font = `${brushSize.value * 5}px Arial`;
-    layer.fillStyle = brushColor.value;
-    layer.fillText(text, x, y);
-    updateCanvas();
-  }
-}
-
-// ** Paint Bucket Tool **
-function fillCanvas(x, y) {
-  // Simple paint bucket logic placeholder
-  alert("Paint Bucket Tool not implemented yet!");
-}
-
-// ** Update Main Canvas **
-function updateCanvas() {
+clearCanvasButton.addEventListener("click", () => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  layers.forEach(layer => ctx.drawImage(layer.canvas, 0, 0));
-}
-
-// ** Tool Selector **
-toolSelector.addEventListener("change", () => {
-  currentTool = toolSelector.value;
+  setCanvasBackground(backgroundColor);
+  saveState();
 });
 
-// ** Layer Events **
-layerSelector.addEventListener("change", switchLayer);
-addLayerButton.addEventListener("click", addLayer);
-deleteLayerButton.addEventListener("click", deleteLayer);
+setBgColorButton.addEventListener("click", () => {
+  setCanvasBackground(bgColorInput.value);
+  saveState();
+});
+
+downloadCanvasButton.addEventListener("click", () => {
+  const link = document.createElement("a");
+  link.download = "simplidraw.png";
+  link.href = canvas.toDataURL();
+  link.click();
+});
+
+toolSelector.addEventListener("change", (e) => {
+  currentTool = e.target.value;
+});
+
+function drawShape(endX, endY) {
+  ctx.lineWidth = brushSizeInput.value;
+  ctx.strokeStyle = brushColorInput.value;
+
+  const width = endX - startX;
+  const height = endY - startY;
+
+  switch (currentTool) {
+    case "line":
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      ctx.closePath();
+      break;
+    case "rectangle":
+      ctx.beginPath();
+      ctx.strokeRect(startX, startY, width, height);
+      ctx.closePath();
+      break;
+    case "circle":
+      const radius = Math.sqrt(width ** 2 + height ** 2) / 2;
+      ctx.beginPath();
+      ctx.arc(startX + width / 2, startY + height / 2, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.closePath();
+      break;
+  }
+}
+
+// Undo/Redo Functionality
+function saveState() {
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  drawingHistory.push(imageData);
+  redoStack = [];
+}
+
+function undo() {
+  if (drawingHistory.length > 0) {
+    redoStack.push(drawingHistory.pop());
+    restoreState();
+  }
+}
+
+function redo() {
+  if (redoStack.length > 0) {
+    drawingHistory.push(redoStack.pop());
+    restoreState();
+  }
+}
+
+function restoreState() {
+  ctx.putImageData(drawingHistory[drawingHistory.length - 1], 0, 0);
+}
+
+// Keyboard Shortcuts
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.key === "z") undo();
+  if (e.ctrlKey && e.key === "y") redo();
+  if (e.ctrlKey && e.key === "s") {
+    e.preventDefault();
+    downloadCanvasButton.click();
+  }
+  if (e.ctrlKey && e.shiftKey && e.key === "c") {
+    clearCanvasButton.click();
+  }
+});
+
+// Resize Canvas
+window.addEventListener("resize", () => {
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = canvas.width;
+  tempCanvas.height = canvas.height;
+  const tempCtx = tempCanvas.getContext("2d");
+  tempCtx.drawImage(canvas, 0, 0);
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight - 50;
+
+  setCanvasBackground(backgroundColor);
+  ctx.drawImage(tempCanvas, 0, 0);
+});
