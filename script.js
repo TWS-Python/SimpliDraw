@@ -1,59 +1,102 @@
 const canvas = document.getElementById("drawingCanvas");
 const ctx = canvas.getContext("2d");
+const brushColorInput = document.getElementById("brushColor");
+const brushSizeInput = document.getElementById("brushSize");
+const bgColorInput = document.getElementById("bgColor");
+const setBgColorButton = document.getElementById("setBgColor");
+const toolSelector = document.getElementById("tool");
+const clearCanvasButton = document.getElementById("clearCanvas");
+const downloadCanvasButton = document.getElementById("downloadCanvas");
 
-// Set canvas dimensions to fill the window
 canvas.width = window.innerWidth;
-canvas.height = window.innerHeight - 50; // Adjust for toolbar height
+canvas.height = window.innerHeight - 50;
 
-// Variables for drawing state
-let drawing = false;
-let brushColor = "#000000";
-let brushSize = 5;
+let isDrawing = false;
+let startX, startY;
+let currentTool = "brush";
 
-// Update brush color and size from toolbar
-document.getElementById("colorPicker").addEventListener("input", (e) => {
-  brushColor = e.target.value;
-});
+const setCanvasBackground = (color) => {
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+};
 
-document.getElementById("brushSize").addEventListener("input", (e) => {
-  brushSize = e.target.value;
-});
+// Initialize with white background
+setCanvasBackground("#ffffff");
 
-// Start drawing on mouse down
+// Event Listeners
 canvas.addEventListener("mousedown", (e) => {
-  drawing = true;
-  ctx.beginPath();
-  ctx.moveTo(e.clientX, e.clientY - canvas.offsetTop);
+  isDrawing = true;
+  startX = e.offsetX;
+  startY = e.offsetY;
 });
 
-// Draw on mouse move
-canvas.addEventListener("mousemove", (e) => {
-  if (drawing) {
-    ctx.lineTo(e.clientX, e.clientY - canvas.offsetTop);
-    ctx.strokeStyle = brushColor;
-    ctx.lineWidth = brushSize;
-    ctx.lineCap = "round";
-    ctx.stroke();
+canvas.addEventListener("mouseup", (e) => {
+  if (currentTool === "line" || currentTool === "rectangle" || currentTool === "circle") {
+    drawShape(e.offsetX, e.offsetY);
   }
+  isDrawing = false;
+  ctx.beginPath();
 });
 
-// Stop drawing on mouse up or mouse out
-canvas.addEventListener("mouseup", () => {
-  drawing = false;
-});
-canvas.addEventListener("mouseout", () => {
-  drawing = false;
+canvas.addEventListener("mousemove", (e) => {
+  if (!isDrawing || currentTool !== "brush") return;
+
+  ctx.lineWidth = brushSizeInput.value;
+  ctx.strokeStyle = brushColorInput.value;
+  ctx.lineCap = "round";
+
+  ctx.lineTo(e.offsetX, e.offsetY);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(e.offsetX, e.offsetY);
 });
 
-// Clear the canvas
-document.getElementById("clearCanvas").addEventListener("click", () => {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+clearCanvasButton.addEventListener("click", () => {
+  setCanvasBackground("#ffffff");
 });
 
-// Download the canvas as an image
-document.getElementById("downloadImage").addEventListener("click", () => {
+setBgColorButton.addEventListener("click", () => {
+  setCanvasBackground(bgColorInput.value);
+});
+
+downloadCanvasButton.addEventListener("click", () => {
   const link = document.createElement("a");
-  link.download = "drawing.png";
-  link.href = canvas.toDataURL("image/png");
+  link.download = "simplidraw.png";
+  link.href = canvas.toDataURL();
   link.click();
 });
+
+toolSelector.addEventListener("change", (e) => {
+  currentTool = e.target.value;
+});
+
+// Shape Drawing Function
+function drawShape(endX, endY) {
+  ctx.lineWidth = brushSizeInput.value;
+  ctx.strokeStyle = brushColorInput.value;
+
+  const width = endX - startX;
+  const height = endY - startY;
+
+  switch (currentTool) {
+    case "line":
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      ctx.closePath();
+      break;
+    case "rectangle":
+      ctx.beginPath();
+      ctx.strokeRect(startX, startY, width, height);
+      ctx.closePath();
+      break;
+    case "circle":
+      const radius = Math.sqrt(width ** 2 + height ** 2) / 2;
+      ctx.beginPath();
+      ctx.arc(startX + width / 2, startY + height / 2, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.closePath();
+      break;
+  }
+}
