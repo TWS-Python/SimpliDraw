@@ -9,14 +9,21 @@ const toolSelector = document.getElementById("tool");
 const clearCanvasButton = document.getElementById("clearCanvas");
 const downloadCanvasButton = document.getElementById("downloadCanvas");
 
+const addLayerButton = document.getElementById("addLayer");
+const deleteLayerButton = document.getElementById("deleteLayer");
+const layerSelector = document.getElementById("layerSelector");
+
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight - 50;
 
 let isDrawing = false;
 let startX, startY;
 let currentTool = "brush";
-let drawingHistory = [];
-let redoStack = [];
+let layers = [];
+let activeLayerIndex = 0;
+
+// Add initial layer
+addLayer();
 
 // Set initial background color
 let backgroundColor = "#ffffff";
@@ -29,6 +36,11 @@ function setCanvasBackground(color) {
 }
 
 canvas.addEventListener("mousedown", (e) => {
+  if (currentTool === "text") {
+    addTextInput(e.offsetX, e.offsetY);
+    return;
+  }
+
   isDrawing = true;
   startX = e.offsetX;
   startY = e.offsetY;
@@ -38,8 +50,8 @@ canvas.addEventListener("mousedown", (e) => {
 });
 
 canvas.addEventListener("mouseup", (e) => {
-  if (["line", "rectangle", "circle"].includes(currentTool)) {
-    drawShape(e.offsetX, e.offsetY);
+  if (["line", "rectangle", "circle", "bucket"].includes(currentTool)) {
+    drawShapeOrFill(e.offsetX, e.offsetY);
   }
   isDrawing = false;
   ctx.beginPath();
@@ -58,107 +70,58 @@ canvas.addEventListener("mousemove", (e) => {
   ctx.moveTo(e.offsetX, e.offsetY);
 });
 
-clearCanvasButton.addEventListener("click", () => {
+function addLayer() {
+  const newLayer = document.createElement("canvas");
+  newLayer.width = canvas.width;
+  newLayer.height = canvas.height;
+  newLayer.ctx = newLayer.getContext("2d");
+  layers.push(newLayer);
+
+  const layerOption = document.createElement("option");
+  layerOption.textContent = `Layer ${layers.length}`;
+  layerOption.value = layers.length - 1;
+  layerSelector.appendChild(layerOption);
+
+  layerSelector.value = layers.length - 1;
+  activeLayerIndex = layers.length - 1;
+  updateCanvas();
+}
+
+function deleteLayer() {
+  if (layers.length === 1) {
+    alert("You must have at least one layer.");
+    return;
+  }
+
+  layers.splice(activeLayerIndex, 1);
+  layerSelector.removeChild(layerSelector.lastChild);
+  activeLayerIndex = Math.max(0, activeLayerIndex - 1);
+  layerSelector.value = activeLayerIndex;
+  updateCanvas();
+}
+
+function updateCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  setCanvasBackground(backgroundColor);
-  saveState();
-});
+  ctx.fillStyle = backgroundColor;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-setBgColorButton.addEventListener("click", () => {
-  setCanvasBackground(bgColorInput.value);
-  saveState();
-});
-
-downloadCanvasButton.addEventListener("click", () => {
-  const link = document.createElement("a");
-  link.download = "simplidraw.png";
-  link.href = canvas.toDataURL();
-  link.click();
-});
-
-toolSelector.addEventListener("change", (e) => {
-  currentTool = e.target.value;
-});
-
-function drawShape(endX, endY) {
-  ctx.lineWidth = brushSizeInput.value;
-  ctx.strokeStyle = brushColorInput.value;
-
-  const width = endX - startX;
-  const height = endY - startY;
-
-  switch (currentTool) {
-    case "line":
-      ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(endX, endY);
-      ctx.stroke();
-      ctx.closePath();
-      break;
-    case "rectangle":
-      ctx.beginPath();
-      ctx.strokeRect(startX, startY, width, height);
-      ctx.closePath();
-      break;
-    case "circle":
-      const radius = Math.sqrt(width ** 2 + height ** 2) / 2;
-      ctx.beginPath();
-      ctx.arc(startX + width / 2, startY + height / 2, radius, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.closePath();
-      break;
-  }
+  layers.forEach((layer) => {
+    ctx.drawImage(layer, 0, 0);
+  });
 }
 
-// Undo/Redo Functionality
-function saveState() {
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  drawingHistory.push(imageData);
-  redoStack = [];
+function addTextInput(x, y) {
+  const textInput = document.createElement("input");
+  textInput.type = "text";
+  textInput.style.position = "absolute";
+  textInput.style.left = `${x}px`;
+  textInput.style.top = `${y}px`;
+  textInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      ctx.fillStyle = brushColorInput.value;
+      ctx.fillText(textInput.value, x, y);
+      document.body.removeChild(textInput);
+    }
+  });
+  document.body.appendChild(textInput);
 }
-
-function undo() {
-  if (drawingHistory.length > 0) {
-    redoStack.push(drawingHistory.pop());
-    restoreState();
-  }
-}
-
-function redo() {
-  if (redoStack.length > 0) {
-    drawingHistory.push(redoStack.pop());
-    restoreState();
-  }
-}
-
-function restoreState() {
-  ctx.putImageData(drawingHistory[drawingHistory.length - 1], 0, 0);
-}
-
-// Keyboard Shortcuts
-document.addEventListener("keydown", (e) => {
-  if (e.ctrlKey && e.key === "z") undo();
-  if (e.ctrlKey && e.key === "y") redo();
-  if (e.ctrlKey && e.key === "s") {
-    e.preventDefault();
-    downloadCanvasButton.click();
-  }
-  if (e.ctrlKey && e.shiftKey && e.key === "c") {
-    clearCanvasButton.click();
-  }
-});
-
-// Resize Canvas
-window.addEventListener("resize", () => {
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = canvas.width;
-  tempCanvas.height = canvas.height;
-  const tempCtx = tempCanvas.getContext("2d");
-  tempCtx.drawImage(canvas, 0, 0);
-
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight - 50;
-
-  setCanvasBackground(backgroundColor);
-  ctx.drawImage(tempCanvas, 0, 0);
-});
