@@ -8,32 +8,14 @@ body {
 
 .toolbar {
   display: flex;
-  align-items: center;
-  background-color: #f4f4f4;
-  padding: 10px;
-  border-bottom: 1px solid #ddd;
-  gap: 10px;
   flex-wrap: wrap;
-}
-
-button, select, input {
-  padding: 5px;
+  gap: 10px;
+  padding: 10px;
+  background-color: #f4f4f4;
+  border-bottom: 1px solid #ddd;
 }
 
 canvas {
   flex-grow: 1;
-  display: block;
   cursor: crosshair;
-}
-
-.layer-panel {
-  position: fixed;
-  right: 10px;
-  top: 60px;
-  width: 150px;
-  background: #fff;
-  border: 1px solid #ccc;
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
-  z-index: 10;
-  padding: 5px;
 }
