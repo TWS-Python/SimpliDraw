@@ -8,17 +8,17 @@
 </head>
 <body>
   <div class="toolbar">
-    <label for="brushColor">Brush Color:</label>
+    <label for="brushColor" title="Select the brush color">Brush Color:</label>
     <input type="color" id="brushColor" value="#000000">
-    
-    <label for="brushSize">Brush Size:</label>
+
+    <label for="brushSize" title="Select the brush size">Brush Size:</label>
     <input type="range" id="brushSize" min="1" max="50" value="5">
 
-    <label for="bgColor">Background Color:</label>
+    <label for="bgColor" title="Select the background color">Background Color:</label>
     <input type="color" id="bgColor" value="#ffffff">
-    <button id="setBgColor">Set Background</button>
+    <button id="setBgColor" title="Set the canvas background color">Set Background</button>
 
-    <label for="tool">Tool:</label>
+    <label for="tool" title="Choose a drawing tool">Tool:</label>
     <select id="tool">
       <option value="brush">Brush</option>
       <option value="line">Line</option>
@@ -26,8 +26,8 @@
       <option value="circle">Circle</option>
     </select>
 
-    <button id="clearCanvas">Clear Canvas</button>
-    <button id="downloadCanvas">Download</button>
+    <button id="clearCanvas" title="Clear the canvas">Clear Canvas</button>
+    <button id="downloadCanvas" title="Save your drawing as a PNG file">Download</button>
   </div>
   <canvas id="drawingCanvas"></canvas>
   <script src="script.js"></script>
