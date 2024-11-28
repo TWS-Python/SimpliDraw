@@ -8,14 +8,19 @@ body {
 
 .toolbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 10px;
+  align-items: center;
   background-color: #f4f4f4;
+  padding: 10px;
   border-bottom: 1px solid #ddd;
+  gap: 10px;
+}
+
+button, select, input {
+  padding: 5px;
 }
 
 canvas {
   flex-grow: 1;
+  display: block;
   cursor: crosshair;
 }
