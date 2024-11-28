@@ -21,3 +21,6 @@ button, select, input {
 
 canvas {
   flex-grow: 1;
+  display: block;
+  cursor: crosshair;
+}
