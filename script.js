@@ -1,14 +1,11 @@
 const canvas = document.getElementById("drawingCanvas");
 const ctx = canvas.getContext("2d");
 
-const brushColorInput = document.getElementById("brushColor");
-const brushSizeInput = document.getElementById("brushSize");
-const bgColorInput = document.getElementById("bgColor");
-const setBgColorButton = document.getElementById("setBgColor");
+const brushColor = document.getElementById("brushColor");
+const brushSize = document.getElementById("brushSize");
 const toolSelector = document.getElementById("tool");
 const clearCanvasButton = document.getElementById("clearCanvas");
 const downloadCanvasButton = document.getElementById("downloadCanvas");
-
 const addLayerButton = document.getElementById("addLayer");
 const deleteLayerButton = document.getElementById("deleteLayer");
 const layerSelector = document.getElementById("layerSelector");
@@ -17,41 +14,85 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight - 50;
 
 let isDrawing = false;
-let startX, startY;
+let startX = 0, startY = 0;
 let currentTool = "brush";
 let layers = [];
 let activeLayerIndex = 0;
 
-// Add initial layer
-addLayer();
+initialize();
 
-// Set initial background color
-let backgroundColor = "#ffffff";
-setCanvasBackground(backgroundColor);
-
-function setCanvasBackground(color) {
-  backgroundColor = color;
-  ctx.fillStyle = color;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+// ** Initialize canvas with layers **
+function initialize() {
+  addLayer();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
 }
 
-canvas.addEventListener("mousedown", (e) => {
-  if (currentTool === "text") {
-    addTextInput(e.offsetX, e.offsetY);
+// ** Add Layer **
+function addLayer() {
+  const newLayer = document.createElement("canvas");
+  newLayer.width = canvas.width;
+  newLayer.height = canvas.height;
+  layers.push(newLayer.getContext("2d"));
+
+  const layerOption = document.createElement("option");
+  layerOption.value = layers.length - 1;
+  layerOption.textContent = `Layer ${layers.length}`;
+  layerSelector.appendChild(layerOption);
+
+  layerSelector.value = layers.length - 1;
+  activeLayerIndex = layers.length - 1;
+  switchLayer();
+}
+
+// ** Switch Active Layer **
+function switchLayer() {
+  const selectedLayerIndex = parseInt(layerSelector.value);
+  activeLayerIndex = selectedLayerIndex;
+  updateCanvas();
+}
+
+// ** Delete Layer **
+function deleteLayer() {
+  if (layers.length === 1) {
+    alert("At least one layer must exist.");
     return;
   }
+  layers.splice(activeLayerIndex, 1);
+  layerSelector.removeChild(layerSelector.lastChild);
+  activeLayerIndex = Math.max(0, activeLayerIndex - 1);
+  layerSelector.value = activeLayerIndex;
+  updateCanvas();
+}
 
-  isDrawing = true;
+// ** Clear Canvas **
+clearCanvasButton.addEventListener("click", () => {
+  layers.forEach(layer => layer.clearRect(0, 0, canvas.width, canvas.height));
+  updateCanvas();
+});
+
+// ** Download Canvas **
+downloadCanvasButton.addEventListener("click", () => {
+  const link = document.createElement("a");
+  link.download = "drawing.png";
+  link.href = canvas.toDataURL();
+  link.click();
+});
+
+// ** Canvas Drawing Events **
+canvas.addEventListener("mousedown", (e) => {
   startX = e.offsetX;
   startY = e.offsetY;
+  isDrawing = true;
 
-  // Save state before drawing
-  saveState();
+  if (currentTool === "text") {
+    addText(startX, startY);
+  }
 });
 
 canvas.addEventListener("mouseup", (e) => {
-  if (["line", "rectangle", "circle", "bucket"].includes(currentTool)) {
-    drawShapeOrFill(e.offsetX, e.offsetY);
+  if (isDrawing && currentTool !== "brush") {
+    drawShape(e.offsetX, e.offsetY);
   }
   isDrawing = false;
   ctx.beginPath();
@@ -60,68 +101,70 @@ canvas.addEventListener("mouseup", (e) => {
 canvas.addEventListener("mousemove", (e) => {
   if (!isDrawing || currentTool !== "brush") return;
 
-  ctx.lineWidth = brushSizeInput.value;
-  ctx.strokeStyle = brushColorInput.value;
-  ctx.lineCap = "round";
+  const layer = layers[activeLayerIndex];
+  layer.lineWidth = brushSize.value;
+  layer.strokeStyle = brushColor.value;
 
-  ctx.lineTo(e.offsetX, e.offsetY);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(e.offsetX, e.offsetY);
+  layer.lineTo(e.offsetX, e.offsetY);
+  layer.stroke();
+  layer.beginPath();
+  layer.moveTo(e.offsetX, e.offsetY);
+
+  updateCanvas();
 });
 
-function addLayer() {
-  const newLayer = document.createElement("canvas");
-  newLayer.width = canvas.width;
-  newLayer.height = canvas.height;
-  newLayer.ctx = newLayer.getContext("2d");
-  layers.push(newLayer);
+// ** Drawing Shapes **
+function drawShape(x, y) {
+  const layer = layers[activeLayerIndex];
+  layer.strokeStyle = brushColor.value;
+  layer.lineWidth = brushSize.value;
 
-  const layerOption = document.createElement("option");
-  layerOption.textContent = `Layer ${layers.length}`;
-  layerOption.value = layers.length - 1;
-  layerSelector.appendChild(layerOption);
-
-  layerSelector.value = layers.length - 1;
-  activeLayerIndex = layers.length - 1;
-  updateCanvas();
-}
-
-function deleteLayer() {
-  if (layers.length === 1) {
-    alert("You must have at least one layer.");
-    return;
+  if (currentTool === "line") {
+    layer.beginPath();
+    layer.moveTo(startX, startY);
+    layer.lineTo(x, y);
+    layer.stroke();
+  } else if (currentTool === "rectangle") {
+    layer.strokeRect(startX, startY, x - startX, y - startY);
+  } else if (currentTool === "circle") {
+    const radius = Math.sqrt(Math.pow(x - startX, 2) + Math.pow(y - startY, 2));
+    layer.beginPath();
+    layer.arc(startX, startY, radius, 0, Math.PI * 2);
+    layer.stroke();
   }
-
-  layers.splice(activeLayerIndex, 1);
-  layerSelector.removeChild(layerSelector.lastChild);
-  activeLayerIndex = Math.max(0, activeLayerIndex - 1);
-  layerSelector.value = activeLayerIndex;
   updateCanvas();
 }
 
+// ** Add Text **
+function addText(x, y) {
+  const text = prompt("Enter text:");
+  if (text) {
+    const layer = layers[activeLayerIndex];
+    layer.font = `${brushSize.value * 5}px Arial`;
+    layer.fillStyle = brushColor.value;
+    layer.fillText(text, x, y);
+    updateCanvas();
+  }
+}
+
+// ** Paint Bucket Tool **
+function fillCanvas(x, y) {
+  // Simple paint bucket logic placeholder
+  alert("Paint Bucket Tool not implemented yet!");
+}
+
+// ** Update Main Canvas **
 function updateCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = backgroundColor;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  layers.forEach((layer) => {
-    ctx.drawImage(layer, 0, 0);
-  });
+  layers.forEach(layer => ctx.drawImage(layer.canvas, 0, 0));
 }
 
-function addTextInput(x, y) {
-  const textInput = document.createElement("input");
-  textInput.type = "text";
-  textInput.style.position = "absolute";
-  textInput.style.left = `${x}px`;
-  textInput.style.top = `${y}px`;
-  textInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      ctx.fillStyle = brushColorInput.value;
-      ctx.fillText(textInput.value, x, y);
-      document.body.removeChild(textInput);
-    }
-  });
-  document.body.appendChild(textInput);
-}
+// ** Tool Selector **
+toolSelector.addEventListener("change", () => {
+  currentTool = toolSelector.value;
+});
+
+// ** Layer Events **
+layerSelector.addEventListener("change", switchLayer);
+addLayerButton.addEventListener("click", addLayer);
+deleteLayerButton.addEventListener("click", deleteLayer);
