@@ -1,6 +1,6 @@
 NOTE: This project was made for a competition, No expansions or additions are planned to be made
 
-# SimpliDraw 🎨  
+# SimpliDraw 🎨  (MS-Paint: Web Version) 
 A simple, browser-based drawing application inspired by MS Paint. SimpliDraw allows users to create, edit, and save their drawings with an intuitive interface. It's lightweight, responsive, and perfect for quick sketches or doodles.
 
 ---
