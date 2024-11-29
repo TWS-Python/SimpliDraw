@@ -18,4 +18,5 @@ body {
 canvas {
   flex-grow: 1;
   cursor: crosshair;
+  background-color: #FFFFFF;
 }
