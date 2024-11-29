@@ -1,11 +1,9 @@
 const canvas = document.getElementById("drawingCanvas");
 const ctx = canvas.getContext("2d");
-
-const brushColorInput = document.getElementById("brushColor");
-const brushSizeInput = document.getElementById("brushSize");
-const bgColorInput = document.getElementById("bgColor");
-const setBgColorButton = document.getElementById("setBgColor");
 const toolSelector = document.getElementById("tool");
+const brushColor = document.getElementById("brushColor");
+const brushSize = document.getElementById("brushSize");
+const undoButton = document.getElementById("undo");
 const clearCanvasButton = document.getElementById("clearCanvas");
 const downloadCanvasButton = document.getElementById("downloadCanvas");
 
@@ -13,152 +11,156 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight - 50;
 
 let isDrawing = false;
-let startX, startY;
+let startX = 0, startY = 0;
 let currentTool = "brush";
-let drawingHistory = [];
+let strokes = [];
 let redoStack = [];
 
-// Set initial background color
-let backgroundColor = "#ffffff";
-setCanvasBackground(backgroundColor);
+// ** Tool-Specific Variables **
+let textInput = "";
 
-function setCanvasBackground(color) {
-  backgroundColor = color;
-  ctx.fillStyle = color;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-
+// ** Start Drawing **
 canvas.addEventListener("mousedown", (e) => {
   isDrawing = true;
   startX = e.offsetX;
   startY = e.offsetY;
 
-  // Save state before drawing
-  saveState();
+  if (currentTool === "brush" || currentTool === "eraser") {
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    strokes.push({
+      type: currentTool,
+      color: ctx.strokeStyle,
+      size: ctx.lineWidth,
+      startX,
+      startY,
+      path: [[startX, startY]],
+    });
+  }
+});
+
+// ** Drawing or Tool-Specific Actions **
+canvas.addEventListener("mousemove", (e) => {
+  if (!isDrawing) return;
+
+  const x = e.offsetX;
+  const y = e.offsetY;
+
+  if (currentTool === "brush" || currentTool === "eraser") {
+    ctx.lineTo(x, y);
+    ctx.stroke();
+
+    const currentStroke = strokes[strokes.length - 1];
+    if (currentStroke.type === currentTool) {
+      currentStroke.path.push([x, y]);
+    }
+  }
 });
 
 canvas.addEventListener("mouseup", (e) => {
-  if (["line", "rectangle", "circle"].includes(currentTool)) {
-    drawShape(e.offsetX, e.offsetY);
-  }
   isDrawing = false;
-  ctx.beginPath();
+  const x = e.offsetX;
+  const y = e.offsetY;
+
+  if (currentTool === "line") {
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.closePath();
+    strokes.push({ type: "line", color: ctx.strokeStyle, size: ctx.lineWidth, startX, startY, endX: x, endY: y });
+  } else if (currentTool === "rectangle") {
+    ctx.beginPath();
+    ctx.rect(startX, startY, x - startX, y - startY);
+    ctx.stroke();
+    ctx.closePath();
+    strokes.push({ type: "rectangle", color: ctx.strokeStyle, size: ctx.lineWidth, startX, startY, width: x - startX, height: y - startY });
+  } else if (currentTool === "circle") {
+    ctx.beginPath();
+    const radius = Math.sqrt((x - startX) ** 2 + (y - startY) ** 2);
+    ctx.arc(startX, startY, radius, 0, 2 * Math.PI);
+    ctx.stroke();
+    ctx.closePath();
+    strokes.push({ type: "circle", color: ctx.strokeStyle, size: ctx.lineWidth, startX, startY, radius });
+  }
 });
 
-canvas.addEventListener("mousemove", (e) => {
-  if (!isDrawing || currentTool !== "brush") return;
+// ** Undo Functionality **
+undoButton.addEventListener("click", () => {
+  if (strokes.length === 0) return;
 
-  ctx.lineWidth = brushSizeInput.value;
-  ctx.strokeStyle = brushColorInput.value;
-  ctx.lineCap = "round";
-
-  ctx.lineTo(e.offsetX, e.offsetY);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(e.offsetX, e.offsetY);
+  redoStack.push(strokes.pop());
+  redrawCanvas();
 });
 
+// ** Clear Canvas **
 clearCanvasButton.addEventListener("click", () => {
+  strokes = [];
+  redoStack = [];
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  setCanvasBackground(backgroundColor);
-  saveState();
 });
 
-setBgColorButton.addEventListener("click", () => {
-  setCanvasBackground(bgColorInput.value);
-  saveState();
-});
-
+// ** Download Canvas as Image **
 downloadCanvasButton.addEventListener("click", () => {
   const link = document.createElement("a");
-  link.download = "simplidraw.png";
+  link.download = "drawing.png";
   link.href = canvas.toDataURL();
   link.click();
 });
 
-toolSelector.addEventListener("change", (e) => {
-  currentTool = e.target.value;
+// ** Handle Tool Changes **
+toolSelector.addEventListener("change", () => {
+  currentTool = toolSelector.value;
+  ctx.strokeStyle = currentTool === "eraser" ? "#FFFFFF" : brushColor.value;
 });
 
-function drawShape(endX, endY) {
-  ctx.lineWidth = brushSizeInput.value;
-  ctx.strokeStyle = brushColorInput.value;
-
-  const width = endX - startX;
-  const height = endY - startY;
-
-  switch (currentTool) {
-    case "line":
-      ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(endX, endY);
-      ctx.stroke();
-      ctx.closePath();
-      break;
-    case "rectangle":
-      ctx.beginPath();
-      ctx.strokeRect(startX, startY, width, height);
-      ctx.closePath();
-      break;
-    case "circle":
-      const radius = Math.sqrt(width ** 2 + height ** 2) / 2;
-      ctx.beginPath();
-      ctx.arc(startX + width / 2, startY + height / 2, radius, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.closePath();
-      break;
-  }
-}
-
-// Undo/Redo Functionality
-function saveState() {
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  drawingHistory.push(imageData);
-  redoStack = [];
-}
-
-function undo() {
-  if (drawingHistory.length > 0) {
-    redoStack.push(drawingHistory.pop());
-    restoreState();
-  }
-}
-
-function redo() {
-  if (redoStack.length > 0) {
-    drawingHistory.push(redoStack.pop());
-    restoreState();
-  }
-}
-
-function restoreState() {
-  ctx.putImageData(drawingHistory[drawingHistory.length - 1], 0, 0);
-}
-
-// Keyboard Shortcuts
-document.addEventListener("keydown", (e) => {
-  if (e.ctrlKey && e.key === "z") undo();
-  if (e.ctrlKey && e.key === "y") redo();
-  if (e.ctrlKey && e.key === "s") {
-    e.preventDefault();
-    downloadCanvasButton.click();
-  }
-  if (e.ctrlKey && e.shiftKey && e.key === "c") {
-    clearCanvasButton.click();
-  }
+// ** Handle Brush Settings **
+brushColor.addEventListener("input", () => {
+  ctx.strokeStyle = currentTool === "eraser" ? "#FFFFFF" : brushColor.value;
 });
 
-// Resize Canvas
-window.addEventListener("resize", () => {
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = canvas.width;
-  tempCanvas.height = canvas.height;
-  const tempCtx = tempCanvas.getContext("2d");
-  tempCtx.drawImage(canvas, 0, 0);
+brushSize.addEventListener("input", () => {
+  ctx.lineWidth = brushSize.value;
+});
 
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight - 50;
+// ** Redraw Canvas **
+function redrawCanvas() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  strokes.forEach(stroke => {
+    ctx.strokeStyle = stroke.color;
+    ctx.lineWidth = stroke.size;
 
-  setCanvasBackground(backgroundColor);
-  ctx.drawImage(tempCanvas, 0, 0);
+    if (stroke.type === "line") {
+      ctx.beginPath();
+      ctx.moveTo(stroke.startX, stroke.startY);
+      ctx.lineTo(stroke.endX, stroke.endY);
+      ctx.stroke();
+      ctx.closePath();
+    } else if (stroke.type === "rectangle") {
+      ctx.beginPath();
+      ctx.rect(stroke.startX, stroke.startY, stroke.width, stroke.height);
+      ctx.stroke();
+      ctx.closePath();
+    } else if (stroke.type === "circle") {
+      ctx.beginPath();
+      ctx.arc(stroke.startX, stroke.startY, stroke.radius, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.closePath();
+    } else if (stroke.type === "brush" || stroke.type === "eraser") {
+      ctx.beginPath();
+      stroke.path.forEach(([x, y], index) => {
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.closePath();
+    }
+  });
+}
+
+// ** Quality of Life: Keyboard Shortcuts **
+window.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.key === "z") {
+    undoButton.click();
+  }
 });
