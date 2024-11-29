@@ -8,26 +8,26 @@
 </head>
 <body>
   <div class="toolbar">
-    <label for="brushColor" title="Select the brush color">Brush Color:</label>
-    <input type="color" id="brushColor" value="#000000">
-
-    <label for="brushSize" title="Select the brush size">Brush Size:</label>
-    <input type="range" id="brushSize" min="1" max="50" value="5">
-
-    <label for="bgColor" title="Select the background color">Background Color:</label>
-    <input type="color" id="bgColor" value="#ffffff">
-    <button id="setBgColor" title="Set the canvas background color">Set Background</button>
-
-    <label for="tool" title="Choose a drawing tool">Tool:</label>
+    <label for="tool">Tool:</label>
     <select id="tool">
       <option value="brush">Brush</option>
       <option value="line">Line</option>
       <option value="rectangle">Rectangle</option>
       <option value="circle">Circle</option>
+      <option value="eraser">Eraser</option>
+      <option value="bucket">Paint Bucket</option>
+      <option value="text">Text</option>
     </select>
 
-    <button id="clearCanvas" title="Clear the canvas">Clear Canvas</button>
-    <button id="downloadCanvas" title="Save your drawing as a PNG file">Download</button>
+    <label for="brushColor">Color:</label>
+    <input type="color" id="brushColor" value="#000000">
+
+    <label for="brushSize">Size:</label>
+    <input type="range" id="brushSize" min="1" max="50" value="5">
+
+    <button id="undo">Undo</button>
+    <button id="clearCanvas">Clear</button>
+    <button id="downloadCanvas">Download</button>
   </div>
   <canvas id="drawingCanvas"></canvas>
   <script src="script.js"></script>
