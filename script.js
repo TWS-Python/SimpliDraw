@@ -11,10 +11,10 @@ const redoButton = document.getElementById("redo");
 const downloadCanvasButton = document.getElementById("downloadCanvas");
 
 canvas.width = window.innerWidth;
-canvas.height = window.innerHeight - 50;
+canvas.height = window.innerHeight - 60;
 
 let isDrawing = false;
-let startX = 0, startY = 0, endX = 0, endY = 0;
+let startX = 0, startY = 0;
 let currentTool = "brush";
 let strokes = [];
 let redoStack = [];
@@ -25,7 +25,6 @@ ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 toolSelector.addEventListener("change", () => {
   currentTool = toolSelector.value;
-  ctx.globalCompositeOperation = currentTool === "eraser" ? "destination-out" : "source-over";
 });
 
 backgroundColorInput.addEventListener("input", () => {
@@ -53,24 +52,25 @@ canvas.addEventListener("mousedown", (e) => {
 canvas.addEventListener("mousemove", (e) => {
   if (!isDrawing) return;
 
-  endX = e.offsetX;
-  endY = e.offsetY;
+  const x = e.offsetX;
+  const y = e.offsetY;
 
   if (currentTool === "brush" || currentTool === "eraser") {
-    ctx.lineTo(endX, endY);
+    ctx.lineTo(x, y);
     ctx.stroke();
 
     const currentStroke = strokes[strokes.length - 1];
-    currentStroke.path.push([endX, endY]);
+    currentStroke.path.push([x, y]);
   }
 });
 
-canvas.addEventListener("mouseup", () => {
+canvas.addEventListener("mouseup", (e) => {
   if (!isDrawing) return;
 
   isDrawing = false;
-  endX = event.offsetX;
-  endY = event.offsetY;
+
+  const endX = e.offsetX;
+  const endY = e.offsetY;
 
   if (currentTool === "line" || currentTool === "rectangle" || currentTool === "circle") {
     const stroke = {
@@ -92,6 +92,8 @@ clearCanvasButton.addEventListener("click", () => {
   strokes = [];
   redoStack = [];
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = backgroundColorInput.value;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 });
 
 undoButton.addEventListener("click", () => {
@@ -138,11 +140,11 @@ function drawShape(stroke) {
 
 function redrawCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = backgroundColorInput.value;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   strokes.forEach((stroke) => {
-    if (stroke.type === "background") {
-      ctx.fillStyle = stroke.color;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    } else if (stroke.type === "brush" || stroke.type === "eraser") {
+    if (stroke.type === "brush" || stroke.type === "eraser") {
       ctx.beginPath();
       ctx.strokeStyle = stroke.color;
       ctx.lineWidth = stroke.size;
@@ -152,7 +154,6 @@ function redrawCanvas() {
         else ctx.lineTo(x, y);
       });
       ctx.stroke();
-      ctx.closePath();
     } else {
       drawShape(stroke);
     }
