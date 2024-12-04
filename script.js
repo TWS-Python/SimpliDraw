@@ -14,7 +14,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight - 50;
 
 let isDrawing = false;
-let startX = 0, startY = 0;
+let startX = 0, startY = 0, endX = 0, endY = 0;
 let currentTool = "brush";
 let strokes = [];
 let redoStack = [];
@@ -53,20 +53,39 @@ canvas.addEventListener("mousedown", (e) => {
 canvas.addEventListener("mousemove", (e) => {
   if (!isDrawing) return;
 
-  const x = e.offsetX;
-  const y = e.offsetY;
+  endX = e.offsetX;
+  endY = e.offsetY;
 
   if (currentTool === "brush" || currentTool === "eraser") {
-    ctx.lineTo(x, y);
+    ctx.lineTo(endX, endY);
     ctx.stroke();
 
     const currentStroke = strokes[strokes.length - 1];
-    currentStroke.path.push([x, y]);
+    currentStroke.path.push([endX, endY]);
   }
 });
 
 canvas.addEventListener("mouseup", () => {
+  if (!isDrawing) return;
+
   isDrawing = false;
+  endX = event.offsetX;
+  endY = event.offsetY;
+
+  if (currentTool === "line" || currentTool === "rectangle" || currentTool === "circle") {
+    const stroke = {
+      type: currentTool,
+      startX,
+      startY,
+      endX,
+      endY,
+      color: brushColor.value,
+      size: brushSize.value,
+    };
+    strokes.push(stroke);
+    redoStack = [];
+    drawShape(stroke);
+  }
 });
 
 clearCanvasButton.addEventListener("click", () => {
@@ -94,6 +113,29 @@ downloadCanvasButton.addEventListener("click", () => {
   link.click();
 });
 
+function drawShape(stroke) {
+  ctx.strokeStyle = stroke.color;
+  ctx.lineWidth = stroke.size;
+
+  if (stroke.type === "line") {
+    ctx.beginPath();
+    ctx.moveTo(stroke.startX, stroke.startY);
+    ctx.lineTo(stroke.endX, stroke.endY);
+    ctx.stroke();
+  } else if (stroke.type === "rectangle") {
+    const width = stroke.endX - stroke.startX;
+    const height = stroke.endY - stroke.startY;
+    ctx.strokeRect(stroke.startX, stroke.startY, width, height);
+  } else if (stroke.type === "circle") {
+    const radius = Math.sqrt(
+      Math.pow(stroke.endX - stroke.startX, 2) + Math.pow(stroke.endY - stroke.startY, 2)
+    );
+    ctx.beginPath();
+    ctx.arc(stroke.startX, stroke.startY, radius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
 function redrawCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   strokes.forEach((stroke) => {
@@ -111,6 +153,8 @@ function redrawCanvas() {
       });
       ctx.stroke();
       ctx.closePath();
+    } else {
+      drawShape(stroke);
     }
   });
 }
