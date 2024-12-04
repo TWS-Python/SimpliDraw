@@ -1,161 +1,124 @@
-const canvas = document.getElementById("drawingCanvas");
-const ctx = canvas.getContext("2d");
+const canvas = document.getElementById('drawingCanvas');
+const ctx = canvas.getContext('2d');
+const undoStack = [];
+const redoStack = [];
 
-const toolSelector = document.getElementById("tool");
-const brushColor = document.getElementById("brushColor");
-const brushSize = document.getElementById("brushSize");
-const backgroundColorInput = document.getElementById("backgroundColor");
-const clearCanvasButton = document.getElementById("clearCanvas");
-const undoButton = document.getElementById("undo");
-const redoButton = document.getElementById("redo");
-const downloadCanvasButton = document.getElementById("downloadCanvas");
+canvas.width = window.innerWidth * 0.9;
+canvas.height = window.innerHeight * 0.8;
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight - 60;
-
+// State variables
 let isDrawing = false;
-let startX = 0, startY = 0;
-let currentTool = "brush";
-let strokes = [];
-let redoStack = [];
+let tool = 'brush';
+let startX, startY;
 
-// Apply initial background color
-ctx.fillStyle = backgroundColorInput.value;
-ctx.fillRect(0, 0, canvas.width, canvas.height);
+// Save the current canvas state for undo/redo
+function saveState() {
+  undoStack.push(canvas.toDataURL());
+  redoStack.length = 0; // Clear the redo stack on new action
+}
 
-toolSelector.addEventListener("change", () => {
-  currentTool = toolSelector.value;
-});
+// Restore canvas state
+function restoreState(dataURL) {
+  const img = new Image();
+  img.src = dataURL;
+  img.onload = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+  };
+}
 
-backgroundColorInput.addEventListener("input", () => {
-  ctx.fillStyle = backgroundColorInput.value;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  strokes.push({ type: "background", color: backgroundColorInput.value });
-  redoStack = [];
-});
-
-canvas.addEventListener("mousedown", (e) => {
+// Start drawing
+canvas.addEventListener('mousedown', (e) => {
   isDrawing = true;
   startX = e.offsetX;
   startY = e.offsetY;
 
-  if (currentTool === "brush" || currentTool === "eraser") {
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.strokeStyle = currentTool === "eraser" ? backgroundColorInput.value : brushColor.value;
-    ctx.lineWidth = brushSize.value;
-    ctx.lineCap = "round";
-    strokes.push({ type: currentTool, path: [[startX, startY]], color: ctx.strokeStyle, size: ctx.lineWidth });
+  if (tool !== 'brush' && tool !== 'erase') {
+    saveState(); // Save state for shapes before starting
   }
 });
 
-canvas.addEventListener("mousemove", (e) => {
+// Stop drawing
+canvas.addEventListener('mouseup', (e) => {
+  isDrawing = false;
+
+  if (tool !== 'brush' && tool !== 'erase') {
+    const endX = e.offsetX;
+    const endY = e.offsetY;
+    drawShape(startX, startY, endX, endY);
+  }
+
+  saveState(); // Save state for every completed action
+});
+
+// Drawing logic
+canvas.addEventListener('mousemove', (e) => {
   if (!isDrawing) return;
 
   const x = e.offsetX;
   const y = e.offsetY;
 
-  if (currentTool === "brush" || currentTool === "eraser") {
+  if (tool === 'brush') {
     ctx.lineTo(x, y);
     ctx.stroke();
-
-    const currentStroke = strokes[strokes.length - 1];
-    currentStroke.path.push([x, y]);
+  } else if (tool === 'erase') {
+    ctx.clearRect(x - 10, y - 10, 20, 20); // Erase with a square
   }
 });
 
-canvas.addEventListener("mouseup", (e) => {
-  if (!isDrawing) return;
+// Draw shapes
+function drawShape(x1, y1, x2, y2) {
+  ctx.beginPath();
 
-  isDrawing = false;
-
-  const endX = e.offsetX;
-  const endY = e.offsetY;
-
-  if (currentTool === "line" || currentTool === "rectangle" || currentTool === "circle") {
-    const stroke = {
-      type: currentTool,
-      startX,
-      startY,
-      endX,
-      endY,
-      color: brushColor.value,
-      size: brushSize.value,
-    };
-    strokes.push(stroke);
-    redoStack = [];
-    drawShape(stroke);
-  }
-});
-
-clearCanvasButton.addEventListener("click", () => {
-  strokes = [];
-  redoStack = [];
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = backgroundColorInput.value;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-});
-
-undoButton.addEventListener("click", () => {
-  if (strokes.length === 0) return;
-  redoStack.push(strokes.pop());
-  redrawCanvas();
-});
-
-redoButton.addEventListener("click", () => {
-  if (redoStack.length === 0) return;
-  strokes.push(redoStack.pop());
-  redrawCanvas();
-});
-
-downloadCanvasButton.addEventListener("click", () => {
-  const link = document.createElement("a");
-  link.download = "drawing.png";
-  link.href = canvas.toDataURL();
-  link.click();
-});
-
-function drawShape(stroke) {
-  ctx.strokeStyle = stroke.color;
-  ctx.lineWidth = stroke.size;
-
-  if (stroke.type === "line") {
-    ctx.beginPath();
-    ctx.moveTo(stroke.startX, stroke.startY);
-    ctx.lineTo(stroke.endX, stroke.endY);
+  if (tool === 'line') {
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
     ctx.stroke();
-  } else if (stroke.type === "rectangle") {
-    const width = stroke.endX - stroke.startX;
-    const height = stroke.endY - stroke.startY;
-    ctx.strokeRect(stroke.startX, stroke.startY, width, height);
-  } else if (stroke.type === "circle") {
-    const radius = Math.sqrt(
-      Math.pow(stroke.endX - stroke.startX, 2) + Math.pow(stroke.endY - stroke.startY, 2)
-    );
-    ctx.beginPath();
-    ctx.arc(stroke.startX, stroke.startY, radius, 0, Math.PI * 2);
+  } else if (tool === 'rectangle') {
+    ctx.rect(x1, y1, x2 - x1, y2 - y1);
+    ctx.stroke();
+  } else if (tool === 'circle') {
+    const radius = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+    ctx.arc(x1, y1, radius, 0, Math.PI * 2);
     ctx.stroke();
   }
 }
 
-function redrawCanvas() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = backgroundColorInput.value;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  strokes.forEach((stroke) => {
-    if (stroke.type === "brush" || stroke.type === "eraser") {
-      ctx.beginPath();
-      ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.size;
-      ctx.lineCap = "round";
-      stroke.path.forEach(([x, y], index) => {
-        if (index === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-    } else {
-      drawShape(stroke);
-    }
+// Toolbar button functionality
+document.querySelectorAll('button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    tool = btn.id.replace('Tool', '').toLowerCase();
   });
-}
+});
+
+// Undo and Redo
+document.getElementById('undo').addEventListener('click', () => {
+  if (undoStack.length > 0) {
+    redoStack.push(undoStack.pop());
+    restoreState(undoStack[undoStack.length - 1] || null);
+  }
+});
+
+document.getElementById('redo').addEventListener('click', () => {
+  if (redoStack.length > 0) {
+    const state = redoStack.pop();
+    undoStack.push(state);
+    restoreState(state);
+  }
+});
+
+// Clear canvas
+document.getElementById('clearCanvas').addEventListener('click', () => {
+  saveState();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+});
+
+// Set brush/erase styles
+ctx.lineWidth = 5;
+ctx.lineCap = 'round';
+ctx.strokeStyle = 'black';
+
+// Set initial state
+saveState();
