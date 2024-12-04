@@ -44,7 +44,7 @@ canvas.addEventListener("mousedown", (e) => {
     ctx.moveTo(startX, startY);
     strokes.push({
       type: currentTool,
-      color: currentTool === "eraser" ? "#FFFFFF" : brushColor.value,
+      color: currentTool === "eraser" ? backgroundColorInput.value : brushColor.value,
       size: brushSize.value,
       path: [[startX, startY]],
     });
@@ -59,7 +59,7 @@ canvas.addEventListener("mousemove", (e) => {
   const y = e.offsetY;
 
   if (currentTool === "brush" || currentTool === "eraser") {
-    ctx.strokeStyle = currentTool === "eraser" ? "#FFFFFF" : brushColor.value;
+    ctx.strokeStyle = currentTool === "eraser" ? backgroundColorInput.value : brushColor.value;
     ctx.lineWidth = brushSize.value;
     ctx.lineTo(x, y);
     ctx.stroke();
