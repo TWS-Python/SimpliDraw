@@ -6,7 +6,7 @@ const redoStack = [];
 canvas.width = window.innerWidth * 0.9;
 canvas.height = window.innerHeight * 0.8;
 
-// State variables
+// Set initial states
 let isDrawing = false;
 let tool = 'brush';
 let startX, startY;
@@ -14,7 +14,7 @@ let startX, startY;
 // Save the current canvas state for undo/redo
 function saveState() {
   undoStack.push(canvas.toDataURL());
-  redoStack.length = 0; // Clear the redo stack on new action
+  redoStack.length = 0; // Clear redo stack on new actions
 }
 
 // Restore canvas state
@@ -34,7 +34,7 @@ canvas.addEventListener('mousedown', (e) => {
   startY = e.offsetY;
 
   if (tool !== 'brush' && tool !== 'erase') {
-    saveState(); // Save state for shapes before starting
+    saveState(); // Save state before starting shapes
   }
 });
 
@@ -48,7 +48,7 @@ canvas.addEventListener('mouseup', (e) => {
     drawShape(startX, startY, endX, endY);
   }
 
-  saveState(); // Save state for every completed action
+  saveState(); // Save after action
 });
 
 // Drawing logic
@@ -62,11 +62,11 @@ canvas.addEventListener('mousemove', (e) => {
     ctx.lineTo(x, y);
     ctx.stroke();
   } else if (tool === 'erase') {
-    ctx.clearRect(x - 10, y - 10, 20, 20); // Erase with a square
+    ctx.clearRect(x - 10, y - 10, 20, 20); // Erase with a square shape
   }
 });
 
-// Draw shapes
+// Draw shapes: line, rectangle, circle
 function drawShape(x1, y1, x2, y2) {
   ctx.beginPath();
 
@@ -84,7 +84,7 @@ function drawShape(x1, y1, x2, y2) {
   }
 }
 
-// Toolbar button functionality
+// Button event listeners
 document.querySelectorAll('button').forEach((btn) => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
@@ -93,7 +93,7 @@ document.querySelectorAll('button').forEach((btn) => {
   });
 });
 
-// Undo and Redo
+// Undo and Redo actions
 document.getElementById('undo').addEventListener('click', () => {
   if (undoStack.length > 0) {
     redoStack.push(undoStack.pop());
@@ -109,7 +109,7 @@ document.getElementById('redo').addEventListener('click', () => {
   }
 });
 
-// Clear canvas
+// Clear canvas button
 document.getElementById('clearCanvas').addEventListener('click', () => {
   saveState();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
