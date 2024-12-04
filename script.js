@@ -5,7 +5,6 @@ const toolSelector = document.getElementById("tool");
 const brushColor = document.getElementById("brushColor");
 const brushSize = document.getElementById("brushSize");
 const backgroundColorInput = document.getElementById("backgroundColor");
-const applyBackgroundButton = document.getElementById("applyBackground");
 const undoButton = document.getElementById("undo");
 const redoButton = document.getElementById("redo");
 const clearCanvasButton = document.getElementById("clearCanvas");
@@ -23,10 +22,15 @@ let redoStack = [];
 // ** Update Tool **
 toolSelector.addEventListener("change", () => {
   currentTool = toolSelector.value;
+  // Reset context settings when switching tools
+  ctx.strokeStyle = brushColor.value;
+  ctx.lineWidth = brushSize.value;
+  ctx.lineCap = "round";
+  ctx.globalCompositeOperation = currentTool === "eraser" ? "destination-out" : "source-over";
 });
 
 // ** Background Color Change **
-applyBackgroundButton.addEventListener("click", () => {
+backgroundColorInput.addEventListener("input", () => {
   ctx.fillStyle = backgroundColorInput.value;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   strokes.push({ type: "background", color: backgroundColorInput.value });
