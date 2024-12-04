@@ -1,34 +1,20 @@
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
 }
 
 .toolbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
   padding: 10px;
-  background-color: #f0f0f0;
+  background-color: #f4f4f4;
   border-bottom: 1px solid #ddd;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  z-index: 1000;
-}
-
-.toolbar label,
-.toolbar input,
-.toolbar select,
-.toolbar button {
-  margin-right: 10px;
+  gap: 10px;
+  align-items: center;
 }
 
 canvas {
+  flex: 1;
   display: block;
-  margin: 0;
-  padding: 0;
-  position: absolute;
-  top: 50px;
-  left: 0;
+  cursor: crosshair;
 }
